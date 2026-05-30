@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Currency Converter</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+ 
+        :root {
+            --bg: #0d0d0d;
+            --surface: #161616;
+            --border: #2a2a2a;
+            --accent: #c8f135;
+            --accent-dim: #a0c020;
+            --text: #f0f0f0;
+            --muted: #666;
+        }
+ 
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+ 
+        .container {
+            width: 100%;
+            max-width: 540px;
+        }
+ 
+        .header {
+            margin-bottom: 2.5rem;
+        }
+ 
+        .tag {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--accent);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-bottom: 0.75rem;
+        }
+ 
+        h1 {
+            font-size: 2.6rem;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+        }
+ 
+        h1 span {
+            color: var(--accent);
+        }
+ 
+        .input-row {
+            display: flex;
+            gap: 0;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+ 
+        .input-row:focus-within {
+            border-color: var(--accent);
+        }
+ 
+        #userInput {
+            flex: 1;
+            background: var(--surface);
+            border: none;
+            outline: none;
+            padding: 1rem 1.2rem;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text);
+        }
+ 
+        #userInput::placeholder { color: var(--muted); }
+ 
+        button {
+            background: var(--accent);
+            color: #0d0d0d;
+            border: none;
+            padding: 1rem 1.4rem;
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+ 
+        button:hover { background: var(--accent-dim); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+ 
+        .examples {
+            margin-top: 0.75rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+ 
+        .chip {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            padding: 0.3rem 0.6rem;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+        }
+ 
+        .chip:hover { color: var(--accent); border-color: var(--accent); }
+ 
+        #result {
+            margin-top: 1.5rem;
+            min-height: 60px;
+        }
+ 
+        .result-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            padding: 1.2rem 1.4rem;
+            border-radius: 0 4px 4px 0;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            animation: fadeIn 0.3s ease;
+        }
+ 
+        .result-box.error {
+            border-left-color: #ff4444;
+            color: #ff8888;
+        }
+ 
+        .result-box.loading {
+            color: var(--muted);
+        }
+ 
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+ 
+        .footer {
+            margin-top: 2rem;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="tag">↳ Powered by Gemini + LangChain</div>
+            <h1>Currency<br><span>Converter</span></h1>
+        </div>
+ 
+        <div class="input-row">
+            <input type="text" id="userInput" placeholder="e.g., Convert 100 USD to INR" />
+            <button id="convertBtn" onclick="sendMsg()">Convert →</button>
+        </div>
+ 
+        <div class="examples">
+            <span class="chip" onclick="setExample(this)">50 EUR to JPY</span>
+            <span class="chip" onclick="setExample(this)">1000 INR to USD</span>
+            <span class="chip" onclick="setExample(this)">200 GBP to CAD</span>
+        </div>
+ 
+        <div id="result"></div>
+ 
+        <div class="footer">// Live rates via Frankfurter API</div>
+    </div>
+ 
+    <script>
+        function setExample(el) {
+            document.getElementById('userInput').value = 'Convert ' + el.textContent;
+        }
+ 
+        async function sendMsg() {
+            const input = document.getElementById('userInput');
+            const resDiv = document.getElementById('result');
+            const btn = document.getElementById('convertBtn');
+            const msg = input.value.trim();
+ 
+            if (!msg) return;
+ 
+            btn.disabled = true;
+            resDiv.innerHTML = '<div class="result-box loading">Processing…</div>';
+ 
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+ 
+                // Handle non-JSON error responses (e.g. Flask HTML 500 page)
+                if (!response.ok) {
+                    resDiv.innerHTML = `<div class="result-box error">HTTP ${response.status} — check your terminal.</div>`;
+                    return;
+                }
+ 
+                const data = await response.json();
+ 
+                // Safely extract response whether it's a string or list of blocks
+                let text = data.response;
+                if (Array.isArray(text)) {
+                    text = text.map(b => (typeof b === 'object' ? b.text || '' : b)).join(' ');
+                }
+ 
+                resDiv.innerHTML = `<div class="result-box">${text || 'No response received.'}</div>`;
+ 
+            } catch (err) {
+                resDiv.innerHTML = '<div class="result-box error">Network error — check your terminal.</div>';
+                console.error('Fetch error:', err);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+ 
+        document.getElementById('userInput').addEventListener('keydown', e => {
+            if (e.key === 'Enter') sendMsg();
+        });
+    </script>
+</body>
+</html>
